@@ -1,6 +1,8 @@
 # ombiBot
 A python-telegram-bot front-end to make ombi-requests
 
+Currently only has movie requests implemented.
+
 # Installation
 
 install python 3
