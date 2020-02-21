@@ -1,22 +1,22 @@
 # ombiBot
 A python-telegram-bot front-end to make ombi-requests
 
-#Installation#
+# Installation
 
 install python 3
 pip install -r requirements.txt
 
-#Running#
+# Running
 
 python3 bot.py
 
-#List of things needed#
+# List of things needed
 
 you will need these things:
 1) ombi api token: ombi->settings->ombi and look for apiKey
 2) telegram bot token: see https://www.siteguarding.com/en/how-to-get-telegram-bot-api-token
 
-#Config file#
+# Config file
 
 - Rename config.example.json to config.json
 - Fill out: 
