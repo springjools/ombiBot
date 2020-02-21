@@ -28,6 +28,7 @@ you will need these things:
     * port: default is 5000
     * baseUrl: default is /ombi
     * apiKey: insert apiKey from ombi
+    * botToken: the bot token you received from BotFather
     * users:  you need at least one pair of user.id and ombi-user-name. The code assumes that any users not found in this list 
               go under the name 'guest'. So you need to set up one ombi user with the name 'guest'. Reason: otherwise any user
               interacting with this bot would have automatic admin access to your ombi server.
