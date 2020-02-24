@@ -13,17 +13,22 @@ Press Ctrl-C on the command line or send a signal to the process to stop the
 bot.
 """
 
-import logging
 import json
 from ombiserver import OmbiServer
+import sys
 
 from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, CallbackQueryHandler, ConversationHandler
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+#sys.path.append('/usr/local/bin')
+import logging
+#from customlog import initlog
+
+#init custom log with colors
+#initlog('ombibot')
 
 # Enable logging
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
                     level=logging.INFO)
-
 log = logging.getLogger(__name__)
 
 #load config
@@ -42,9 +47,9 @@ ombi                    = OmbiServer(server,ombi_api,port,baseUrl)
 userNames               = {}
 
 # Stages
-FIRST, TYPING, SELECT_MOVIE, MOVIE_DETAILS, REQUEST_COMPLETED = range(5)
+FIRST, TYPING, TYPING2, SELECT_MOVIE, MOVIE_DETAILS, REQUEST_COMPLETED = range(6)
 # Callback data
-ONE, TWO, THREE, FOUR, BACK = range(5)
+ONE, TWO, THREE, FOUR, BACK, ACTOR, TITLE = range(7)
 
 # Define a few command handlers. These usually take the two arguments update and
 # context. Error handlers also receive the raised TelegramError object in error.
@@ -139,6 +144,8 @@ def help(update, context):
 def search_movie(update, context):
     """Send a message when the command /search_movies is issued."""
     log.info("Search movie called")
+    log.info("Callback data = {}".format(update.callback_query.data if update.callback_query else "N/A"))
+
     
     try:
         text = update.message.text if update.message else None
@@ -150,13 +157,97 @@ def search_movie(update, context):
         return
      
     if not title:
-        text = 'Enter title:'
-        update.callback_query.edit_message_text(text=text)
+        log.info("Search movie called without title")
+        text = 'Enter movie title:'
+        keyboard = [
+            [InlineKeyboardButton("... or search by actor instead", callback_data=str(ACTOR))],
+        ]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        update.callback_query.edit_message_text(text=text, reply_markup=reply_markup)
         return TYPING
             
     else:
         movies = ombi.search_movies(title)
-        update.message.reply_text('Found {} results for {}'.format(len(movies),title))
+        update.message.reply_text('Found {} results for term {}'.format(len(movies),title))
+        
+        keyboard = [
+            [InlineKeyboardButton("Back", callback_data=str(BACK)), InlineKeyboardButton("By actor", callback_data=str(ACTOR))],
+        ]
+        
+        log.debug("Movies found: {}".format(len(movies)))
+        
+        for title, data in movies.items():
+            year = data.get('releaseDate').split('-')[0] if data.get('releaseDate') else 'N/A'
+            text = '{} ({})'.format(title, year)
+            
+            if data.get('available'):
+                text = text + b'\xE2\x9C\x85'.decode('utf-8')
+            elif data.get('requested'):
+                text = text + b'\xE2\x9E\xA1'.decode('utf-8')    
+                
+            log.debug("Parsing {}, type = {}".format(data,type(data)))
+            #log.info("Title: {} id = {}".format(title,data.get('id')))
+            
+            keyboard.append([InlineKeyboardButton( text, callback_data=data.get('id'))])
+        
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        update.message.reply_text(
+            "Choose one title (or go back):",
+        reply_markup=reply_markup
+    )
+    return SELECT_MOVIE
+
+def toggle_search_actor(update, context):
+    log.info("Toggle search to actor")
+    log.info("Callback data = {}".format(update.callback_query.data if update.callback_query else "N/A"))
+    #log.info("Data = {}, Context = {}".format(update,context))
+    
+    keyboard = [
+            [InlineKeyboardButton("Back", callback_data=str(BACK)), InlineKeyboardButton("By title", callback_data=str(TITLE))],
+            ]
+        
+          
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    update.callback_query.edit_message_text(text="Enter actor name (or go back):", reply_markup=reply_markup)
+      
+    return TYPING2
+
+def toggle_search_title(update, context):
+    log.info("Toggle search to title")
+    log.info("Callback data = {}".format(update.callback_query.data if update.callback_query else "N/A"))
+    
+    keyboard = [
+            [InlineKeyboardButton("Back", callback_data=str(BACK)), InlineKeyboardButton("By actor", callback_data=str(ACTOR))],
+            ]
+        
+          
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    update.callback_query.edit_message_text(text="Enter movie title (or go back):", reply_markup=reply_markup)
+        
+    return TYPING
+
+def search_movie_actor(update, context):
+    """Send a message when the command /search_movies is issued."""
+    log.info("Search movie called")
+    log.info("Callback data = {}".format(update.callback_query.data if update.callback_query else "N/A"))
+    
+    try:
+        text = update.message.text if update.message else None
+        actor = text if text else context.args[0] if context.args else None
+        log.debug("update: {}, context args = {}".format(update.message,context.args))
+        
+    except Exception as e:
+        log.error("Error with search_movie: {}".format(e))
+        return
+     
+    if not actor:
+        text = 'Enter search term (actor):'
+        update.callback_query.edit_message_text(text=text)
+        return TYPING
+            
+    else:
+        movies = ombi.search_movies_actor(actor)
+        update.message.reply_text('Found {} results for {}'.format(len(movies),actor))
         
         keyboard = [
             [InlineKeyboardButton("Back", callback_data=str(BACK))]
@@ -353,23 +444,31 @@ def main():
     conv_handler = ConversationHandler(
         entry_points=[CommandHandler('start', start)],
         states={
-            FIRST:              [CallbackQueryHandler(search_movie,         pattern='^' + str(ONE) + '$'),
-                                 CallbackQueryHandler(search_series,        pattern='^' + str(TWO) + '$'),
-                                 CallbackQueryHandler(start_over,           pattern='^' + str(BACK) + '$')],
+            FIRST:              [CallbackQueryHandler(search_movie,                 pattern='^' + str(ONE) + '$'),
+                                 CallbackQueryHandler(search_series,                pattern='^' + str(TWO) + '$'),
+                                 CallbackQueryHandler(start_over,                   pattern='^' + str(BACK) + '$')],
                     
-            TYPING:             [MessageHandler(Filters.text,search_movie)],
+            TYPING:             [MessageHandler(Filters.text,search_movie),
+                                 CallbackQueryHandler(toggle_search_actor,          pattern='^' + str(ACTOR) + '$'),
+                                 CallbackQueryHandler(start_over,                   pattern='^' + str(BACK) + '$')],
+                                
+            TYPING2:            [MessageHandler(Filters.text,search_movie_actor),
+                                 CallbackQueryHandler(toggle_search_title,          pattern='^' + str(TITLE) + '$'),
+                                 CallbackQueryHandler(start_over,                   pattern='^' + str(BACK) + '$')],
+                                
                      
-            SELECT_MOVIE:       [CallbackQueryHandler(start_over,          pattern='^' + str(BACK) + '$'),
-                                 CallbackQueryHandler(get_movie_info,      pattern='^.+\d+.+$'),
+            SELECT_MOVIE:       [CallbackQueryHandler(start_over,                   pattern='^' + str(BACK) + '$'),
+                                 CallbackQueryHandler(toggle_search_actor,          pattern='^' + str(ACTOR) + '$'),
+                                 CallbackQueryHandler(get_movie_info,               pattern='^.+\d+.+$'),
                                  MessageHandler(Filters.text,search_movie)],
                                  
-            MOVIE_DETAILS:      [CallbackQueryHandler(search_movie,        pattern='^' + str(BACK) + '\-.+$'),
-                                 CallbackQueryHandler(find_similar,        pattern='^' + str(TWO) + '\-.+$'),
-                                 CallbackQueryHandler(get_movie,           pattern='^\d+$')],
+            MOVIE_DETAILS:      [CallbackQueryHandler(search_movie,                 pattern='^' + str(BACK) + '\-.+$'),
+                                 CallbackQueryHandler(find_similar,                 pattern='^' + str(TWO) + '\-.+$'),
+                                 CallbackQueryHandler(get_movie,                    pattern='^\d+$')],
                                  
                      
-            REQUEST_COMPLETED:  [CallbackQueryHandler(new_request,         pattern='^' + str(ONE) + '$'),
-                                 CallbackQueryHandler(end,                 pattern='^' + str(TWO) + '$')]
+            REQUEST_COMPLETED:  [CallbackQueryHandler(new_request,                  pattern='^' + str(ONE) + '$'),
+                                 CallbackQueryHandler(end,                          pattern='^' + str(TWO) + '$')]
         },
         fallbacks=[CommandHandler('start', start)], 
         per_message = False
