@@ -96,13 +96,13 @@ class OmbiServer(object):
         self.api_key    = apikey
         self.userName   = userName
         self.endpoint   = server + ':' + str(port) + baseUrl + '/api/v1'
-
+         
         log.info ("Endpoint is {}".format(self.endpoint))
 
     def search_movies(self, title):
         """ Get queue from server
         """
-        log.info("Searching for movies with title = {}".format(title))
+
         # Create and send HTTP Get to the server
         h={
             'http.useragent' : 'ombi-server',
@@ -111,37 +111,38 @@ class OmbiServer(object):
             'User-Agent'     : 'Ombi/server',
             'Accept-Encoding': 'gzip'
         }
-
+           
         try:
             url = self.endpoint + '/Search/movie/' +str(title)
             log.debug("Sending GET request to {}".format(url))
             r = requests.get(url, headers=h,timeout=30)
         except Exception as e:
             raise HTTP_MethodError('Error Connecting to server: {}'.format(e))
-
-        log.info("HTTP {}: {}".format(r.status_code,httpErrors[r.status_code]))
+        
+        log.debug("HTTP {}: {}".format(r.status_code,httpErrors[r.status_code]))
         output = {}
-
+        
         if r.status_code == 200: #200 = 'OK'
-            #try:
-            #log.info("Response: {}".format(r.text()))
+            
             parsedata = r.json()
-            log.info("type = {}, len = {}".format(type(parsedata),len(parsedata)))
-            for data in parsedata:
-                log.info("Parsing n = {} data of type {}".format(len(data),type(data)))
-                output[data.get('title')] = {'id':data.get('id'),'title':data.get('title'), 'available':data.get('available'),'requested':data.get('requested'),'releaseDate':data.get('releaseDate')}
-
-            #except Exception as e:
-            #log.error("Server returned error: {}".format(e))
-
-
+            log.debug("type = {}, len = {}".format(type(parsedata),len(parsedata)))
+            
+            try:
+                for data in parsedata:
+                    #log.info("Parsing {} data: {}".format(self.type,data))
+                    output[data.get('title')] = {'id':data.get('id'),'title':data.get('title'), 'available':data.get('available'),'requested':data.get('requested'),'releaseDate':data.get('releaseDate')}
+                    
+            except Exception as e:
+                log.error("Invalid server type: {}, {}".format(self.type,e))
+                
+                
         log.info("Returning {} records".format(len(output)))
         return output
-
+     
     def search_movies_actor(self, actor,languageCode='en'):
         """ Get queue from server
         """
-        log.info("Searching for movies with actor = {}".format(actor))
+
         # Create and send HTTP Get to the server
         headers = {
             'http.useragent' : 'ombi-server',
@@ -150,7 +151,7 @@ class OmbiServer(object):
             'Accept-Encoding': 'gzip',
             'User-Agent'     : 'Ombi/server'
         }
-
+        
         payload = {
             "searchTerm": actor,
             "languageCode": "en"
@@ -159,35 +160,37 @@ class OmbiServer(object):
         try:
             url = self.endpoint + '/Search/movie/actor'
             log.info("Sending POST request to {} with data = {}, {}".format(url,payload,json.dumps(payload)))
-
+            
             r = requests.post(url = url, headers = headers, data = json.dumps(payload))
         except Exception as e:
             raise HTTP_MethodError('Error Connecting to server: {}'.format(e))
-
+        
         log.debug("HTTP {}: {}".format(r.status_code,httpErrors[r.status_code]))
         log.debug("Response = {}".format(r.text))
         log.debug("Url = {}".format(r.url))
-
+        
         output = {}
         if r.status_code == 200: #200 = 'OK'
-
+            
             parsedata = r.json()
-
+            log.debug("type = {}, len = {}".format(type(parsedata),len(parsedata)))
+            
             try:
-                log.debug("type = {}, len = {}".format(type(parsedata),len(parsedata)))
                 for data in parsedata:
                     #log.info("Parsing {} data: {}".format(self.type,data))
                     output[data.get('title')] = {'id':data.get('id'),'title':data.get('title'), 'available':data.get('available'),'requested':data.get('requested'),'releaseDate':data.get('releaseDate')}
-
+                    
             except Exception as e:
                 log.error("Unable to process search: {}".format(e))
+                
+                
         log.info("Returning {} records".format(len(output)))
         return output
-
+ 
     def request_movie(self, movieID,user,languageCode='en'):
         """ Get queue from server
         """
-        log.info("Request movie with id =  {}".format(movieID))
+
         # Create and send HTTP Get to the server
         headers = {
             'http.useragent'    : 'ombi-server',
@@ -197,7 +200,7 @@ class OmbiServer(object):
             'Accept-Encoding'   : 'gzip',
             'User-Agent'        : 'Ombi/server'
         }
-
+        
         payload = {
             'theMovieDbId': int(movieID),
             'languageCode': 'en'
@@ -206,25 +209,26 @@ class OmbiServer(object):
         try:
             url = self.endpoint + '/Request/movie'
             log.debug("Sending POST request to {} with headers = {}".format(url,headers))
-
+            
             r = requests.post(url = url, headers = headers, data = json.dumps(payload))
         except Exception as e:
             raise HTTP_MethodError('Error Connecting to server: {}'.format(e))
-
+        
         log.debug("HTTP {}: {}".format(r.status_code,httpErrors[r.status_code]))
         log.debug("Response = {}".format(r.text))
         log.debug("Url = {}".format(r.url))
-
+        
         if r.status_code == 200: #200 = 'OK'
-
+        
             response = r.json()
             message = response.get('message') if response.get('result') else response.get('errorMessage')
+                 
             log.info("Result: {} Message: {}".format(response.get('result') if response else None,message))
             return message
         else:
             log.error("Unable to handle request: {}, {}".format(r.status_code,r.text))
             return False
-
+    
     def find_similar(self, movieID,languageCode='en'):
         """ Get similar movies from server
         """
@@ -237,7 +241,7 @@ class OmbiServer(object):
             'Accept-Encoding': 'gzip',
             'User-Agent'     : 'Ombi/server'
         }
-
+        
         payload = {
             'theMovieDbId': int(movieID),
             'languageCode': 'en'
@@ -246,26 +250,31 @@ class OmbiServer(object):
         try:
             url = self.endpoint + '/Search/movie/similar'
             log.debug("Sending POST request to {} with data = {}, {}".format(url,payload,json.dumps(payload)))
-
+            
             r = requests.post(url = url, headers = headers, data = json.dumps(payload))
         except Exception as e:
             raise HTTP_MethodError('Error Connecting to server: {}'.format(e))
-
+        
         log.debug("HTTP {}: {}".format(r.status_code,httpErrors[r.status_code]))
         log.debug("Response = {}".format(r.text))
         log.debug("Url = {}".format(r.url))
 
         output = {}
-
+        
         if r.status_code == 200: #200 = 'OK'
+            
             parsedata = r.json()
             log.debug("type = {}, len = {}".format(type(parsedata),len(parsedata)))
+            
             try:
                 for data in parsedata:
                     #log.info("Parsing {} data: {}".format(self.type,data))
                     output[data.get('title')] = {'id':data.get('id'),'title':data.get('title'), 'available':data.get('available'),'requested':data.get('requested'),'releaseDate':data.get('releaseDate')}
+                    
             except Exception as e:
                 log.error("Invalid server type: {}, {}".format(self.type,e))
+                
+                
         log.info("Returning {} records".format(len(output)))
         return output
 
@@ -273,6 +282,7 @@ class OmbiServer(object):
         """ Get extra movie information from server
         """
         log.debug("Got id: {}".format(movieID))
+        
         # Create and send HTTP Get to the server
         headers = {
             'http.useragent' : 'ombi-server',
@@ -281,7 +291,7 @@ class OmbiServer(object):
             'Accept-Encoding': 'gzip',
             'User-Agent'     : 'Ombi/server'
         }
-
+        
         payload = {
             'theMovieDbId': int(movieID),
             'languageCode': 'en'
@@ -290,24 +300,24 @@ class OmbiServer(object):
         try:
             url = self.endpoint + '/Search/movie/info'
             log.debug("Sending POST request to {} with data = {}, {}".format(url,payload,json.dumps(payload)))
-
+            
             r = requests.post(url = url, headers = headers, data = json.dumps(payload))
         except Exception as e:
             raise HTTP_MethodError('Error Connecting to server: {}'.format(e))
-
+        
         log.debug("HTTP {}: {}".format(r.status_code,httpErrors[r.status_code]))
         log.debug("Response = {}".format(r.text))
         log.debug("Url = {}".format(r.url))
 
         output = {}
-
+        
         if r.status_code == 200: #200 = 'OK'
             parsedata = r.json()
             log.debug("Text = {}".format(r.text))
             if parsedata:
                 data = parsedata
                 output = {'id':data.get('id'), 'overView': data.get('overview'), 'voteCount':data.get('voteCount'),'voteAverage':data.get('voteAverage'),'title':data.get('title'), 'available':data.get('available'),'requested':data.get('requested'),'releaseDate':data.get('releaseDate')}    
-
+        
         log.info("Returning {} fields: {}".format(len(output),output))
-
+        
         return output
