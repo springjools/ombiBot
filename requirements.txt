@@ -3,7 +3,7 @@ cffi==1.14.0
 chardet==3.0.4
 cryptography==3.3.2
 decorator==4.4.1
-future==0.18.2
+future==0.18.3
 idna==2.9
 pycparser==2.19
 python-telegram-bot==12.4.2
