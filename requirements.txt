@@ -10,5 +10,5 @@ python-telegram-bot==12.4.2
 requests==2.32.0
 six==1.14.0
 tornado==6.4.2
-urllib3==1.26.19
+urllib3==2.5.0
 wincertstore==0.2
